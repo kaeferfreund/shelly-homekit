@@ -71,6 +71,7 @@ static void shelly_sw_set_state_ctx(struct shelly_sw_service_ctx *ctx,
                                     bool new_state, const char *source) {
   const struct mgos_config_sw *cfg = ctx->cfg;
   if (new_state == ctx->info.state) return;
+
   int out_value = (new_state ? cfg->out_on_value : !cfg->out_on_value);
   mgos_gpio_write(cfg->out_gpio, out_value);
   LOG(LL_INFO, ("%s: %d -> %d (%s) %d", cfg->name, ctx->info.state, new_state,
@@ -86,6 +87,9 @@ static void shelly_sw_set_state_ctx(struct shelly_sw_service_ctx *ctx,
     mgos_sys_config_save(&mgos_sys_config, false /* try_once */,
                          NULL /* msg */);
   }
+
+
+  
   double now = mgos_uptime();
   if (now < 60) {
     if (now - ctx->last_change_ts > 10) {
@@ -93,7 +97,7 @@ static void shelly_sw_set_state_ctx(struct shelly_sw_service_ctx *ctx,
     }
     ctx->change_cnt++;
     ctx->last_change_ts = now;
-    if (ctx->change_cnt >= 10) {
+    if (ctx->change_cnt >= 100) {
       LOG(LL_INFO, ("Reset sequence detected"));
       ctx->change_cnt = 0;
       mgos_gpio_blink(cfg->out_gpio, 100, 100);
@@ -118,42 +122,6 @@ bool shelly_sw_get_info(int id, struct shelly_sw_info *info) {
   return true;
 }
 
-static const HAPCharacteristic *shelly_sw_name_char(uint16_t iid) {
-  HAPStringCharacteristic *c = calloc(1, sizeof(*c));
-  if (c == NULL) return NULL;
-  *c = (const HAPStringCharacteristic){
-      .format = kHAPCharacteristicFormat_String,
-      .iid = iid,
-      .characteristicType = &kHAPCharacteristicType_Name,
-      .debugDescription = kHAPCharacteristicDebugDescription_Name,
-      .manufacturerDescription = NULL,
-      .properties =
-          {
-              .readable = true,
-              .writable = false,
-              .supportsEventNotification = false,
-              .hidden = false,
-              .requiresTimedWrite = false,
-              .supportsAuthorizationData = false,
-              .ip =
-                  {
-                      .controlPoint = false,
-                      .supportsWriteResponse = false,
-                  },
-              .ble =
-                  {
-                      .supportsBroadcastNotification = false,
-                      .supportsDisconnectedNotification = false,
-                      .readableWithoutSecurity = false,
-                      .writableWithoutSecurity = false,
-                  },
-          },
-      .constraints = {.maxLength = 64},
-      .callbacks = {.handleRead = HAPHandleNameRead, .handleWrite = NULL},
-  };
-  return c;
-};
-
 static struct shelly_sw_service_ctx *find_ctx(const HAPService *svc) {
   for (size_t i = 0; i < ARRAY_SIZE(s_ctx); i++) {
     if (s_ctx[i].hap_service == svc) return &s_ctx[i];
@@ -161,66 +129,25 @@ static struct shelly_sw_service_ctx *find_ctx(const HAPService *svc) {
   return NULL;
 }
 
-HAPError shelly_sw_handle_on_read(
-    HAPAccessoryServerRef *server,
-    const HAPBoolCharacteristicReadRequest *request, bool *value,
-    void *context) {
-  struct shelly_sw_service_ctx *ctx = find_ctx(request->service);
-  const struct mgos_config_sw *cfg = ctx->cfg;
-  *value = ctx->info.state;
-  LOG(LL_INFO, ("%s: READ -> %d", cfg->name, ctx->info.state));
-  ctx->hap_server = server;
-  ctx->hap_accessory = request->accessory;
-  (void) context;
-  return kHAPError_None;
-}
 
-HAPError shelly_sw_handle_on_write(
+HAPError on_write_shutter_target(
     HAPAccessoryServerRef *server,
-    const HAPBoolCharacteristicWriteRequest *request, bool value,
-    void *context) {
+    const HAPUInt8CharacteristicWriteRequest *request, 
+    uint8_t value,
+    void* context) {
+
   struct shelly_sw_service_ctx *ctx = find_ctx(request->service);
   ctx->hap_server = server;
   ctx->hap_accessory = request->accessory;
-  shelly_sw_set_state_ctx(ctx, value, "HAP");
+
+  //shelly_sw_set_state_ctx(ctx, value, "HAP");
+
+  value = 2;
+
+
   (void) context;
   return kHAPError_None;
 }
-
-static const HAPCharacteristic *shelly_sw_on_char(uint16_t iid) {
-  HAPBoolCharacteristic *c = calloc(1, sizeof(*c));
-  if (c == NULL) return NULL;
-  *c = (const HAPBoolCharacteristic){
-      .format = kHAPCharacteristicFormat_Bool,
-      .iid = iid,
-      .characteristicType = &kHAPCharacteristicType_On,
-      .debugDescription = kHAPCharacteristicDebugDescription_On,
-      .manufacturerDescription = NULL,
-      .properties =
-          {
-              .readable = true,
-              .writable = true,
-              .supportsEventNotification = true,
-              .hidden = false,
-              .requiresTimedWrite = false,
-              .supportsAuthorizationData = false,
-              .ip = {.controlPoint = false, .supportsWriteResponse = false},
-              .ble =
-                  {
-                      .supportsBroadcastNotification = true,
-                      .supportsDisconnectedNotification = true,
-                      .readableWithoutSecurity = false,
-                      .writableWithoutSecurity = false,
-                  },
-          },
-      .callbacks =
-          {
-              .handleRead = shelly_sw_handle_on_read,
-              .handleWrite = shelly_sw_handle_on_write,
-          },
-  };
-  return c;
-};
 
 static void shelly_sw_in_cb(int pin, void *arg) {
   struct shelly_sw_service_ctx *ctx = arg;
@@ -238,7 +165,7 @@ static void shelly_sw_in_cb(int pin, void *arg) {
       shelly_sw_set_state_ctx(ctx, !ctx->info.state, "button");
       break;
     case SHELLY_SW_IN_MODE_DETACHED:
-      // Nothing to do
+      // Nothing to do    
       break;
   }
   (void) pin;
@@ -261,6 +188,198 @@ static void shelly_sw_read_power(void *arg) {
 }
 #endif
 
+static const HAPUInt8Characteristic *shutter_current_position(uint16_t iid) {
+  HAPUInt8Characteristic *c = calloc(1, sizeof(*c));
+  if (c == NULL) return NULL;
+  *c = (const HAPUInt8Characteristic){
+      .format = kHAPCharacteristicFormat_UInt8,
+      .iid = iid,
+      .characteristicType = &kHAPCharacteristicType_CurrentPosition,
+      .debugDescription = kHAPCharacteristicDebugDescription_CurrentPosition,
+      .manufacturerDescription = NULL,
+      .properties =
+          {
+              .readable = true,
+              .writable = false,
+              .supportsEventNotification = false,
+              .hidden = false,
+              .requiresTimedWrite = false,
+              .supportsAuthorizationData = false,
+              .ip =
+                  {
+                      .controlPoint = false,
+                      .supportsWriteResponse = false,
+                  },
+              .ble =
+                  {
+                      .supportsBroadcastNotification = false,
+                      .supportsDisconnectedNotification = false,
+                      .readableWithoutSecurity = false,
+                      .writableWithoutSecurity = false,
+                  },
+          },
+      .units = kHAPCharacteristicUnits_Percentage,
+      .constraints = { .minimumValue = 0,
+                     .maximumValue = 100,
+                     .stepValue = 1,
+                     .validValues = NULL,
+                     .validValuesRanges = NULL },
+      .callbacks = {.handleRead = 0, .handleWrite = NULL},
+  };
+  return c;
+};
+
+static const HAPUInt8Characteristic *shutter_target_position(uint16_t iid) {
+  HAPUInt8Characteristic *c = calloc(1, sizeof(*c));
+  if (c == NULL) return NULL;
+  *c = (const HAPUInt8Characteristic){
+      .format = kHAPCharacteristicFormat_UInt8,
+      .iid = iid,
+      .characteristicType = &kHAPCharacteristicType_TargetPosition,
+      .debugDescription = kHAPCharacteristicDebugDescription_TargetPosition,
+      .manufacturerDescription = NULL,
+      .properties =
+          {
+              .readable = true,
+              .writable = true,
+              .supportsEventNotification = true,
+              .hidden = false,
+              .requiresTimedWrite = false,
+              .supportsAuthorizationData = false,
+              .ip =
+                  {
+                      .controlPoint = false,
+                      .supportsWriteResponse = false,
+                  },
+              .ble =
+                  {
+                      .supportsBroadcastNotification = true,
+                      .supportsDisconnectedNotification = true,
+                      .readableWithoutSecurity = false,
+                      .writableWithoutSecurity = false,
+                  },
+          },
+      .units = kHAPCharacteristicUnits_Percentage,
+      .constraints = { .minimumValue = 0,
+                     .maximumValue = 100,
+                     .stepValue = 1,
+                     .validValues = NULL,
+                     .validValuesRanges = NULL },
+      .callbacks = {
+                      .handleRead = 0, 
+                      .handleWrite = on_write_shutter_target},
+  };
+  return c;
+};
+
+static const HAPUInt8Characteristic *shutter_position_state(uint16_t iid) {
+  HAPUInt8Characteristic *c = calloc(1, sizeof(*c));
+  if (c == NULL) return NULL;
+  *c = (const HAPUInt8Characteristic){
+      .format = kHAPCharacteristicFormat_UInt8,
+      .iid = iid,
+      .characteristicType = &kHAPCharacteristicType_PositionState,
+      .debugDescription = kHAPCharacteristicDebugDescription_PositionState,
+      .manufacturerDescription = NULL,
+      .properties =
+          {
+              .readable = true,
+              .writable = false,
+              .supportsEventNotification = false,
+              .hidden = false,
+              .requiresTimedWrite = false,
+              .supportsAuthorizationData = false,
+              .ip =
+                  {
+                      .controlPoint = false,
+                      .supportsWriteResponse = false,
+                  },
+              .ble =
+                  {
+                      .supportsBroadcastNotification = false,
+                      .supportsDisconnectedNotification = false,
+                      .readableWithoutSecurity = false,
+                      .writableWithoutSecurity = false,
+                  },
+          },
+      .callbacks = {  .handleRead = 0, 
+                      .handleWrite = NULL},
+  };
+  return c;
+};
+
+static const HAPBoolCharacteristic *shutter_hold_position(uint16_t iid) {
+  HAPBoolCharacteristic *c = calloc(1, sizeof(*c));
+  if (c == NULL) return NULL;
+  *c = (const HAPBoolCharacteristic){
+      .format = kHAPCharacteristicFormat_Bool,
+      .iid = iid,
+      .characteristicType = &kHAPCharacteristicType_HoldPosition,
+      .debugDescription = kHAPCharacteristicDebugDescription_HoldPosition,
+      .manufacturerDescription = NULL,
+      .properties = 
+          {
+              .readable = true,
+              .writable = false,
+              .supportsEventNotification = false,
+              .hidden = false,
+              .requiresTimedWrite = false,
+              .supportsAuthorizationData = false,
+              .ip =
+                  {
+                      .controlPoint = false,
+                      .supportsWriteResponse = false,
+                  },
+              .ble =
+                  {
+                      .supportsBroadcastNotification = false,
+                      .supportsDisconnectedNotification = false,
+                      .readableWithoutSecurity = false,
+                      .writableWithoutSecurity = false,
+                  },
+          },
+      .callbacks = {
+        .handleRead = 0, 
+        .handleWrite = NULL},
+  };
+  return c;
+};
+
+static const HAPBoolCharacteristic *shutter_obstruction_detected(uint16_t iid) {
+  HAPBoolCharacteristic *c = calloc(1, sizeof(*c));
+  if (c == NULL) return NULL;
+  *c = (const HAPBoolCharacteristic){
+      .format = kHAPCharacteristicFormat_Bool,
+      .iid = iid,
+      .characteristicType = &kHAPCharacteristicType_ObstructionDetected,
+      .debugDescription = kHAPCharacteristicDebugDescription_ObstructionDetected,
+      .manufacturerDescription = NULL,
+      .properties = 
+          {
+              .readable = true,
+              .writable = false,
+              .supportsEventNotification = false,
+              .hidden = false,
+              .requiresTimedWrite = false,
+              .supportsAuthorizationData = false,
+              .ip =
+                  {
+                      .controlPoint = false,
+                      .supportsWriteResponse = false,
+                  },
+              .ble =
+                  {
+                      .supportsBroadcastNotification = false,
+                      .supportsDisconnectedNotification = false,
+                      .readableWithoutSecurity = false,
+                      .writableWithoutSecurity = false,
+                  },
+          },
+      .callbacks = {.handleRead = 0, .handleWrite = NULL},
+  };
+  return c;
+};
+
 HAPService *shelly_sw_service_create(
 #ifdef MGOS_HAVE_ADE7953
     struct mgos_ade7953 *ade7953, int ade7953_channel,
@@ -277,17 +396,24 @@ HAPService *shelly_sw_service_create(
   }
   HAPService *svc = calloc(1, sizeof(*svc));
   if (svc == NULL) return NULL;
-  const HAPCharacteristic **chars = calloc(3, sizeof(*chars));
+  const HAPCharacteristic **chars = calloc(5, sizeof(*chars));
   if (chars == NULL) return NULL;
   svc->iid = IID_BASE + (IID_STEP * cfg->id) + 0;
-  svc->serviceType = &kHAPServiceType_Switch;
-  svc->debugDescription = kHAPServiceDebugDescription_Switch;
+  svc->serviceType = &kHAPServiceType_Window;
+  svc->debugDescription = kHAPServiceDebugDescription_Window;
   svc->name = cfg->name;
   svc->properties.primaryService = true;
-  chars[0] = shelly_sw_name_char(IID_BASE + (IID_STEP * cfg->id) + 1);
-  chars[1] = shelly_sw_on_char(IID_BASE + (IID_STEP * cfg->id) + 2);
-  chars[2] = NULL;
+
+  chars[0] = shutter_current_position(IID_BASE + (IID_STEP * cfg->id) + 1);
+  chars[1] = shutter_target_position(IID_BASE + (IID_STEP * cfg->id) + 2);
+  chars[2] = shutter_position_state(IID_BASE + (IID_STEP * cfg->id) + 3);
+  chars[3] = shutter_hold_position(IID_BASE + (IID_STEP * cfg->id) + 4);
+  chars[4] = shutter_obstruction_detected(IID_BASE + (IID_STEP * cfg->id) + 5);
+  chars[5] = NULL;
+
   svc->characteristics = chars;
+
+
   struct shelly_sw_service_ctx *ctx = &s_ctx[cfg->id];
   ctx->cfg = cfg;
   ctx->hap_service = svc;

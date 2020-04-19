@@ -15,7 +15,7 @@ filesystem:
 
 config_schema:
   # Serial number. This can be later set in the field but HomeKit requires at least 2 bytes.
-  - ["device.sn", "000000"]
+  - ["device.sn", "123456"]
   # Try .gz-compressed html.
   - ["http.index_files", "index.html,index.html.gz"]
 
@@ -36,8 +36,8 @@ build_vars:
   MGOS_HAP_SIMPLE_CONFIG: 1
 
 cdefs:
-  PRODUCT_VENDOR: '"Allterco"'
-  SERVICE_NAME: '"Switch"'
+  PRODUCT_VENDOR: '"C2 Konzepte"'
+  SERVICE_NAME: '"RolladenSteuerung"'
   LED_GPIO: -1
   BTN_GPIO: -1
 
@@ -202,7 +202,7 @@ conds:
         BTN_DOWN: 0
         PRODUCT_MODEL: '"Shelly2.5"'
         PRODUCT_HW_REV: '"2.5"'
-        NUM_SWITCHES: 2
+        NUM_SWITCHES: 4
         MG_ENABLE_SSL: 0
         SHELLY_HAVE_PM: 1
         # HAP_LOG_LEVEL: 0
@@ -214,12 +214,12 @@ conds:
         - ["i2c.scl_gpio", 14]
         - ["sw1", "sw", {"title": "SW1 settings"}]
         - ["sw1.id", 0]
-        - ["sw1.name", "Shelly SW1"]
+        - ["sw1.name", "Ab"]
         - ["sw1.out_gpio", 4]
         - ["sw1.in_gpio",  13]
         - ["sw2", "sw", {"title": "SW2 settings"}]
         - ["sw2.id", 1]
-        - ["sw2.name", "Shelly SW2"]
+        - ["sw2.name", "Auf"]
         - ["sw2.out_gpio", 15]
         - ["sw2.in_gpio",  5]
 

@@ -47,6 +47,21 @@
 #define BTN_DOWN 0
 #endif
 
+const HAPService windowService = {
+    .iid = 1,
+    .serviceType = &kHAPServiceType_Window,
+    .debugDescription = kHAPServiceDebugDescription_AccessoryInformation,
+    .name = NULL,
+    .properties = { .primaryService = false, .hidden = false, .ble = { .supportsConfiguration = false } },
+    .linkedServices = NULL,
+    .characteristics = (const HAPCharacteristic* const[]) { &kHAPCharacteristicType_CurrentPosition,
+                                                            &kHAPCharacteristicType_TargetPosition,
+                                                            &kHAPCharacteristicType_PositionState,
+                                                            &kHAPCharacteristicType_HoldPosition,
+                                                            &kHAPCharacteristicType_ObstructionDetected,
+                                                            NULL }
+};
+
 static HAPIPSession sessions[NUM_SESSIONS];
 static uint8_t in_bufs[NUM_SESSIONS][IO_BUF_SIZE];
 static uint8_t out_bufs[NUM_SESSIONS][IO_BUF_SIZE];
@@ -91,7 +106,7 @@ HAPError shelly_identify_cb(HAPAccessoryServerRef *server,
 
 static HAPAccessory s_accessory = {
     .aid = 1,
-    .category = kHAPAccessoryCategory_Switches,
+    .category = kHAPAccessoryCategory_Windows,
     .name = NULL,  // Set from config,
     .manufacturer = CS_STRINGIFY_MACRO(PRODUCT_VENDOR),
     .model = CS_STRINGIFY_MACRO(PRODUCT_MODEL),
@@ -422,11 +437,12 @@ enum mgos_app_init_result mgos_app_init(void) {
   s_accessory.firmwareVersion = mgos_sys_ro_vars_get_fw_version();
   s_accessory.serialNumber = mgos_sys_config_get_device_sn();
 
-  const HAPService **services = calloc(3 + NUM_SWITCHES + 1, sizeof(*services));
+  const HAPService **services = calloc(4 + NUM_SWITCHES + 1, sizeof(*services));
   services[0] = &mgos_hap_accessory_information_service;
   services[1] = &mgos_hap_protocol_information_service;
   services[2] = &mgos_hap_pairing_service;
-  int i = 3;
+  services[4] = &windowService;
+  int i = 4;
   // Workaround for Shelly2.5: initing SW1 input (GPIO13) somehow causes
   // SW2 output (GPIO15) to turn on. Initializing SW2 first fixes it.
 #ifdef MGOS_CONFIG_HAVE_SW2
