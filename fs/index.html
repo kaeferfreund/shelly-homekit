@@ -438,7 +438,7 @@ el("sw1_set_btn").onclick = function() {
   );
 }
 
-el("sw1_set_btn").onclick = function() {
+el("shutter_set_down").onclick = function() {
   sw_set_common(
       sw1.sw_id,
       !sw1.sw_state,
@@ -448,6 +448,7 @@ el("sw1_set_btn").onclick = function() {
 
 el("shutter_set_up").onclick = function() {
   sw_set_common(
+      sw2.sw_id,
       !sw2.sw_state,
       el("shutter_up_set_spinner"),
   );

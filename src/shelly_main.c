@@ -139,14 +139,6 @@ static bool shelly_start_hap_server(bool quiet) {
   return false;
 }
 
-static void set_gpio_shutter(bool direction){
-  if direction {
-    mgos_gpio_setup_output(cfg->out_gpio, out_value);
-  }else{
-    mgos_gpio_setup_output(cfg->out_gpio, out_value);
-  }
-}
-
 static void check_btn(int pin, bool btn_down) {
   if (pin < 0) return;
   bool pressed = (mgos_gpio_read(pin) == btn_down);

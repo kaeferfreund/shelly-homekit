@@ -86,12 +86,52 @@ static void handle_auto_off(struct shelly_sw_service_ctx *ctx,
   LOG(LL_INFO, ("%d: Set auto-off timer for %d", cfg->id, cfg->auto_off_delay));
 }
 
+// 0 stop, 1 up, 2 down
+static void set_gpio_shutter(int direction){
+  
+  if (direction == 0) {
+    mgos_gpio_setup_output(s_ctx[0].cfg->out_gpio, 0);
+    mgos_gpio_setup_output(s_ctx[1].cfg->out_gpio, 0);
+    s_ctx[0].info.state = 0;
+    s_ctx[1].info.state = 0;
+  }
+  if (direction == 1) {
+    mgos_gpio_setup_output(s_ctx[0].cfg->out_gpio, 0);
+    mgos_gpio_setup_output(s_ctx[1].cfg->out_gpio, 1);
+    s_ctx[0].info.state = 0;
+    s_ctx[1].info.state = 1;
+  }
+  if (direction == 2) {
+    mgos_gpio_setup_output(s_ctx[0].cfg->out_gpio, 1);
+    mgos_gpio_setup_output(s_ctx[1].cfg->out_gpio, 0);
+    s_ctx[0].info.state = 1;
+    s_ctx[1].info.state = 0;
+  }
+  return;
+}
+
 static void shelly_sw_set_state_ctx(struct shelly_sw_service_ctx *ctx,
                                     bool new_state, const char *source) {
   const struct mgos_config_sw *cfg = ctx->cfg;
   int out_value = (new_state ? cfg->out_on_value : !cfg->out_on_value);
-  mgos_gpio_setup_output(cfg->out_gpio, out_value);
+
+  // set gpio here
+  // if(SHELLY_SHUTTER_MODE == 1){
   if (new_state == ctx->info.state) return;
+    if (!new_state){
+      set_gpio_shutter(0);
+    }
+    if (new_state){
+      if (ctx->cfg->out_gpio == s_ctx[0].cfg->out_gpio){
+        set_gpio_shutter(1);
+      }
+      if (ctx->cfg->out_gpio == s_ctx[1].cfg->out_gpio){
+        set_gpio_shutter(2);
+      }
+    }
+  // }
+  
+  return;
   LOG(LL_INFO, ("%s: %d -> %d (%s) %d", cfg->name, ctx->info.state, new_state,
                 source, out_value));
   ctx->info.state = new_state;
