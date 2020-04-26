@@ -139,6 +139,14 @@ static bool shelly_start_hap_server(bool quiet) {
   return false;
 }
 
+static void set_gpio_shutter(bool direction){
+  if direction {
+    mgos_gpio_setup_output(cfg->out_gpio, out_value);
+  }else{
+    mgos_gpio_setup_output(cfg->out_gpio, out_value);
+  }
+}
+
 static void check_btn(int pin, bool btn_down) {
   if (pin < 0) return;
   bool pressed = (mgos_gpio_read(pin) == btn_down);
@@ -318,6 +326,7 @@ static void shelly_get_info_handler(struct mg_rpc_request_info *ri,
       ", apower: %.3f, aenergy: %.3f"
 #endif
       "},"
+      "device_mode: %d,"
 #endif
       "wifi_en: %B, wifi_ssid: %Q, wifi_pass: %Q, "
       "hap_provisioned: %B, hap_paired: %B}",
@@ -343,6 +352,7 @@ static void shelly_get_info_handler(struct mg_rpc_request_info *ri,
 #ifdef SHELLY_HAVE_PM
       sw2.apower, sw2.aenergy,
 #endif
+      mgos_sys_config_get_device_mode(),
 #endif
       mgos_sys_config_get_wifi_sta_enable(), (ssid ? ssid : ""),
       (pass ? pass : ""), hap_provisioned, hap_paired);
@@ -386,6 +396,15 @@ static bool shelly_cfg_migrate(void) {
     mgos_sys_config_set_shelly_cfg_version(1);
     changed = true;
   }
+
+#ifdef MGOS_CONFIG_HAVE_SW2
+  if (mgos_sys_config_get_shelly_cfg_version() == 1) {
+    mgos_sys_config_set_device_mode(SHELLY_SHUTTER_MODE);
+    mgos_sys_config_set_shelly_cfg_version(2);
+    changed = true;
+  }
+#endif
+
   return changed;
 }
 

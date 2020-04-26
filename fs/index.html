@@ -52,6 +52,50 @@
       <span id="uptime_label" style="float: right; visibility: hidden">Uptime: <span id="uptime"></span></span>
     </div>
 
+    <div class="container" id="shutter_container" style="display: block">
+      <h1 class="">Shutter Mode Settings</h1>
+      <div class="form">
+        <div class="">
+          <div class="form-control">
+            <label>Mode:</label>
+            <select id="shutter_in_mode">
+              <option id="shutter_mode_0" value="0">On</option>
+              <option id="shutter_mode_1" value="1">Off</option>
+            </select>
+          </div>
+        </div>
+        <div class="">
+          <div class="form-control">
+            <label>Status:</label>
+            <span id="shutter_state"></span>
+            <span id="shutter_up_power_stats"></span>
+            <span id="shutter_down_power_stats"></span>
+          </div>
+        </div>
+        <div class="">
+          <div class="form-control">
+            <label></label>
+            <button class="btn" id="shutter_set_up">
+              <span id="shutter_up_set_spinner"></span>
+              <label id="shutter_up_btn_label">Up</label>
+            </button>
+            <button class="btn" id="shutter_set_down">
+              <span id="shutter_down_set_spinner"></span>
+              <label id="shutter_down_btn_label">Down</label>
+            </button>
+          </div>
+        </div>
+        <div class="">
+          <div class="form-control">
+            <label></label>
+            <button class="btn" id="shutter_save_btn">
+              <span id="shutter_save_spinner"></span>
+                <label>Save</label>
+              </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="container" id="sw1_container" style="display: none">
       <h1 class="" id="sw1_name">SW1 Name</h1>
       <div class="form">
@@ -265,10 +309,31 @@ var hapResetSpinner = el("hap_reset_spinner");
 
 var sw1 = el("sw1_container");
 var sw2 = el("sw2_container");
+var device = el("shutter_container");
 
 function el(id) {
   return document.getElementById(id);
 }
+
+el("shutter_save_btn").onclick = function() {
+    var data = {  
+    config: {},
+    save: true,
+    reboot: false,
+  };
+  data.config["device"] = { mode: parseInt(el("shutter_in_mode").value) }
+
+  shutter_save_spinner.className = "spin";
+  axios.post(host + "/rpc/Config.Set", data).then(function(res) {
+  }).catch(function(err) {
+    if (err.response) {
+      err = err.response.data.message;
+    }
+    alert(err);
+  }).then(function() {
+    shutter_save_spinner.className = "s";
+  });
+};
 
 el("hap_save_btn").onclick = function() {
   var code = hapSetupCode.value;
@@ -363,11 +428,18 @@ el("sw1_set_btn").onclick = function() {
   );
 }
 
-el("sw2_set_btn").onclick = function() {
+el("sw1_set_btn").onclick = function() {
   sw_set_common(
-      sw2.sw_id,
+      sw1.sw_id,
+      !sw1.sw_state,
+      el("sw1_set_spinner"),
+  );
+}
+
+el("shutter_set_up").onclick = function() {
+  sw_set_common(
       !sw2.sw_state,
-      el("sw2_set_spinner"),
+      el("shutter_up_set_spinner"),
   );
 }
 
@@ -461,6 +533,7 @@ function getInfo() {
     wifiEn.checked = res.data.wifi_en;
     wifiSSID.value = res.data.wifi_ssid;
     wifiPass.value = res.data.wifi_pass;
+
     el("device_id").innerText = res.data.id;
     if (res.data.hap_provisioned) {
       hapProvisioned.innerText = "yes";
@@ -474,6 +547,7 @@ function getInfo() {
     el("app_version").innerText = res.data.version;
     el("app_build").innerText = res.data.fw_build;
     el("uptime").innerText = durationStr(res.data.uptime);
+
     if (res.data.sw1) {
       el("sw1_name").innerText = res.data.sw1.name;
       el("sw1_state").innerText = (res.data.sw1.state ? "on" : "off");
@@ -508,6 +582,27 @@ function getInfo() {
       sw2.sw_state = res.data.sw2.state;
       sw2.style.display = "block";
     }
+
+    if(res.data.device_mode) {
+      // el("shutter_state").innerText = (res.data.shutter.state ? "up" : "down");
+      if (res.data.sw1.apower !== undefined) {
+        el("shutter_up_power_stats").innerText =
+            ", Up: " + Math.round(res.data.sw1.apower) + "W, " + res.data.sw1.aenergy + "Wh";
+      }
+      if (res.data.sw2.apower !== undefined) {
+        el("shutter_down_power_stats").innerText =
+            ", Down: " + Math.round(res.data.sw2.apower) + "W, " + res.data.sw2.aenergy + "Wh";
+      }
+      el("shutter_down_btn_label").innerText = "Down";
+      el("shutter_up_btn_label").innerText = "Up";
+      el("shutter_state").innerText = "100%";
+     shutter_container.style.display = "block";
+      if(res.data.device_mode == 1){
+        sw1.style.display = "none";
+        sw2.style.display = "none";
+      } 
+    }
+
     el("homekit_container").style.visibility = "visible";
     el("wifi_container").style.visibility = "visible";
     el("fw_container").style.visibility = "visible";

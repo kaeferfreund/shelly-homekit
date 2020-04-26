@@ -36,6 +36,11 @@ enum shelly_sw_initial_state {
   SHELLY_SW_INITIAL_STATE_INPUT = 3,
 };
 
+enum shelly_mode_state {
+  SHELLY_STANDARD_MODE = 0,
+  SHELLY_SHUTTER_MODE = 1,
+};
+
 HAPService *shelly_sw_service_create(
 #ifdef MGOS_HAVE_ADE7953
     struct mgos_ade7953 *ade7953, int ade7953_channel,
