@@ -89,9 +89,27 @@ HAPError shelly_identify_cb(HAPAccessoryServerRef *server,
                             const HAPAccessoryIdentifyRequest *request,
                             void *context);
 
+const HAPService windowService = {
+    .iid = 1,
+    .serviceType = &kHAPServiceType_Window,
+    .debugDescription = kHAPServiceDebugDescription_AccessoryInformation,
+    .name = NULL,
+    .properties = { .primaryService = false, .hidden = false, .ble = { .supportsConfiguration = false } },
+    .linkedServices = NULL,
+    .characteristics = (const HAPCharacteristic *const[])
+    {
+        &kHAPCharacteristicType_CurrentPosition,
+        &kHAPCharacteristicType_TargetPosition,
+        &kHAPCharacteristicType_PositionState,
+        &kHAPCharacteristicType_HoldPosition,
+        &kHAPCharacteristicType_ObstructionDetected,
+        NULL
+    }
+};
+
 static HAPAccessory s_accessory = {
     .aid = 1,
-    .category = kHAPAccessoryCategory_Switches,
+    .category = kHAPAccessoryCategory_Windows,
     .name = NULL,  // Set from config,
     .manufacturer = CS_STRINGIFY_MACRO(PRODUCT_VENDOR),
     .model = CS_STRINGIFY_MACRO(PRODUCT_MODEL),
@@ -468,27 +486,28 @@ enum mgos_app_init_result mgos_app_init(void) {
     s_accessory.serialNumber = sn;
   }
 
-  const HAPService **services = calloc(3 + NUM_SWITCHES + 1, sizeof(*services));
+  const HAPService **services = calloc(4 + 1, sizeof(*services));
   services[0] = &mgos_hap_accessory_information_service;
   services[1] = &mgos_hap_protocol_information_service;
   services[2] = &mgos_hap_pairing_service;
-  int i = 3;
+  services[4] = &windowService;
+  int i = 4;
   // Workaround for Shelly2.5: initing SW1 input (GPIO13) somehow causes
   // SW2 output (GPIO15) to turn on. Initializing SW2 first fixes it.
 #ifdef MGOS_CONFIG_HAVE_SW2
-  services[i] = shelly_sw_service_create(
+  // services[i] = shelly_sw_service_create(
 #ifdef MGOS_HAVE_ADE7953
-      s_ade7953, 0,
+      // s_ade7953, 0,
 #endif
-      mgos_sys_config_get_sw2());
+      // mgos_sys_config_get_sw2());
   if (services[i] != NULL) i++;
 #endif
 #ifdef MGOS_CONFIG_HAVE_SW1
-  services[i] = shelly_sw_service_create(
+  // services[i] = shelly_sw_service_create(
 #ifdef MGOS_HAVE_ADE7953
-      s_ade7953, 1,
+      // s_ade7953, 1,
 #endif
-      mgos_sys_config_get_sw1());
+      // mgos_sys_config_get_sw1());
   if (services[i] != NULL) i++;
 #endif
   s_accessory.services = services;
