@@ -313,7 +313,7 @@ static void shelly_get_info_handler(struct mg_rpc_request_info *ri,
       "{id: %Q, app: %Q, host: %Q, version: %Q, fw_build: %Q, uptime: %d, "
 #ifdef MGOS_CONFIG_HAVE_SW1
       "sw1: {id: %d, name: %Q, in_mode: %d, initial: %d, "
-      "state: %B, auto_off: %B, auto_off_delay: %d"
+      "state: %B, auto_off: %B, auto_off_delay: %.3f"
 #ifdef SHELLY_HAVE_PM
       ", apower: %.3f, aenergy: %.3f"
 #endif
@@ -321,7 +321,7 @@ static void shelly_get_info_handler(struct mg_rpc_request_info *ri,
 #endif
 #ifdef MGOS_CONFIG_HAVE_SW2
       "sw2: {id: %d, name: %Q, in_mode: %d, initial: %d, "
-      "state: %B, auto_off: %B, auto_off_delay: %d"
+      "state: %B, auto_off: %B, auto_off_delay: %.3f"
 #ifdef SHELLY_HAVE_PM
       ", apower: %.3f, aenergy: %.3f"
 #endif
@@ -470,6 +470,11 @@ enum mgos_app_init_result mgos_app_init(void) {
   s_accessory.name = mgos_sys_config_get_device_id();
   s_accessory.firmwareVersion = mgos_sys_ro_vars_get_fw_version();
   s_accessory.serialNumber = mgos_sys_config_get_device_sn();
+  if (s_accessory.serialNumber == NULL) {
+    static char sn[13] = "????????????";
+    mgos_expand_mac_address_placeholders(sn);
+    s_accessory.serialNumber = sn;
+  }
 
   const HAPService **services = calloc(3 + NUM_SWITCHES + 1, sizeof(*services));
   services[0] = &mgos_hap_accessory_information_service;
